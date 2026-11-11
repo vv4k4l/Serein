@@ -6866,6 +6866,14 @@ impl eframe::App for Desktop {
 					.then(|| winit::window::Fullscreen::Borderless(self.window.current_monitor())),
 			);
 		}
+		// F11 toggles the whole window; a video or call share leaving fullscreen still restores it.
+		if ctx.input(|input| input.key_pressed(egui::Key::F11) && input.modifiers.is_none()) {
+			let entering = self.window.fullscreen().is_none();
+			self.window.set_fullscreen(
+				entering
+					.then(|| winit::window::Fullscreen::Borderless(self.window.current_monitor())),
+			);
+		}
 		#[cfg(feature = "demo")]
 		if let Some(diagnostic) = &self.rendering_demo {
 			diagnostic.show(&ctx, &self.window);
