@@ -174,8 +174,8 @@ impl Video {
 		ctx: &eframe::egui::Context,
 		demo: bool,
 	) -> Result<(), &'static str> {
-		if !attachment.is_video() || attachment.size == 0 || attachment.size > 100 * 1024 * 1024 {
-			return Err("Video preview limit: 100 MiB");
+		if !attachment.is_video() || attachment.size == 0 || attachment.size > 1024 * 1024 * 1024 {
+			return Err("Video preview limit: 1 GiB");
 		}
 		let url = if demo {
 			None
@@ -254,7 +254,7 @@ impl Video {
 		demo: bool,
 	) {
 		let id = attachment.id;
-		if attachment.size == 0 || attachment.size > 100 * 1024 * 1024 {
+		if attachment.size == 0 || attachment.size > 1024 * 1024 * 1024 {
 			player.poster_failed(id);
 			return;
 		}

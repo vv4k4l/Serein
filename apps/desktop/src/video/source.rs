@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::runtime::Handle;
 
-const MAX_BYTES: usize = 100 * 1024 * 1024;
+const MAX_BYTES: usize = 1024 * 1024 * 1024;
 const CHUNK: usize = 256 * 1024;
 const CACHE_CHUNKS: usize = 8;
 const INVALID: &str = "Video download failed or changed; reload the conversation";
@@ -23,7 +23,7 @@ pub(super) fn source(
 	runtime: Handle,
 ) -> Result<Box<dyn platform::video::ReadSeek>, &'static str> {
 	if expected == 0 || expected > MAX_BYTES {
-		return Err("Video preview limit: 100 MiB");
+		return Err("Video preview limit: 1 GiB");
 	}
 	let (input, len) = if let Some(url) = url {
 		// The caller has validated the service URL; never let URL userinfo add credentials.

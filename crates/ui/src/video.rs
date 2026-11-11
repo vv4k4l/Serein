@@ -391,7 +391,7 @@ impl VideoUi {
 			} else if state == VideoState::Idle
 				&& !self.poster_seen.contains(&attachment.id)
 				&& attachment.size > 0
-				&& attachment.size <= 100 * 1024 * 1024
+				&& attachment.size <= 1024 * 1024 * 1024
 				&& ui.is_rect_visible(stage)
 				&& !self
 					.poster_queue
