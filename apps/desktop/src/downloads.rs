@@ -401,9 +401,15 @@ fn copy_media(
 }
 
 pub(crate) fn original_url(attachment: &Attachment) -> Option<url::Url> {
+	original_url_within(attachment, MAX_BYTES)
+}
+
+/// The same admission as [`original_url`] with a caller-chosen size ceiling; the video player
+/// streams ranges instead of holding the file, so it allows larger attachments than downloads.
+pub(crate) fn original_url_within(attachment: &Attachment, limit: u64) -> Option<url::Url> {
 	if !model::valid_attachments(std::slice::from_ref(attachment))
 		|| attachment.size == 0
-		|| attachment.size > MAX_BYTES
+		|| attachment.size > limit
 	{
 		return None;
 	}

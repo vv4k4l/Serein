@@ -181,7 +181,7 @@ impl Video {
 			None
 		} else {
 			Some(
-				crate::downloads::original_url(&attachment)
+				crate::downloads::original_url_within(&attachment, 1024 * 1024 * 1024)
 					.ok_or("Video attachment unavailable")?,
 			)
 		};
@@ -261,7 +261,7 @@ impl Video {
 		let url = if demo {
 			None
 		} else {
-			match crate::downloads::original_url(&attachment) {
+			match crate::downloads::original_url_within(&attachment, 1024 * 1024 * 1024) {
 				Some(url) => Some(url),
 				None => {
 					player.poster_failed(id);
