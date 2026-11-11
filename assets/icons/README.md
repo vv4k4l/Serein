@@ -26,8 +26,8 @@ legal disclaimer applies. The license file is staged in both packages as
 One repository-drawn glyph, `thread.svg` (four slanted round-capped bars on the same 256-unit
 grid), marks threads; it is rasterized with the Phosphor set and carries no upstream license.
 
-- `atlas.png`: 512×896 RGBA, 27,140 bytes after lossless `oxipng -o max --strip all`.
-  SHA-256 `0a9be12493c9cbf4dd6b61ce8451af90311f856801b529787d5af3ea0f598adc`.
+- `atlas.png`: 512×896 RGBA, 51207 bytes; the `serein-mark` cell was replaced in place with the Hitora crystal.
+  SHA-256 `c7ab671888db12f23757de096227c3e8a1c058693499736cc090d76908e81675`.
 - `index.tsv`: icon name, tab, zero-based cell; SHA-256
   `1c0a57f296eaadaa2bd70bf395f4ac5f610eadbcf2cb1c576476f51d16f6f53e`.
 
