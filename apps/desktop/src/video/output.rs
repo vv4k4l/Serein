@@ -1,5 +1,9 @@
-//! One second of decoded stereo PCM; the device callback only touches its ring and atomics.
+//! A few seconds of decoded stereo PCM; the device callback only touches its ring and atomics.
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+
+/// Seconds of PCM the decoder may queue ahead: a cushion long enough to cover one blocking
+/// range fetch, bounded at 96 kHz stereo to 3 MiB.
+const PCM_SECONDS: usize = 4;
 use std::sync::{
 	Arc,
 	atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
@@ -121,7 +125,7 @@ pub fn open(rate: u32, controls: Controls) -> Result<Output, &'static str> {
 	if !(1..=8).contains(&config.channels) || !(8000..=192000).contains(&config.sample_rate) {
 		return Err("Unsupported audio output format");
 	}
-	let (producer, frames) = rtrb::RingBuffer::new(rate as usize);
+	let (producer, frames) = rtrb::RingBuffer::new(rate as usize * PCM_SECONDS);
 	controls.position.store(0, Ordering::Release);
 	let playback = Playback {
 		frames,

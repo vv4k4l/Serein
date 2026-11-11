@@ -11,7 +11,9 @@ use std::{
 use tokio::runtime::Handle;
 
 const MAX_BYTES: usize = 1024 * 1024 * 1024;
-const CHUNK: usize = 256 * 1024;
+// Each range is a separate request on the decode thread, so throughput is bounded by
+// chunk size divided by round-trip time; 256 KiB starved high-bitrate videos.
+const CHUNK: usize = 2 * 1024 * 1024;
 const CACHE_CHUNKS: usize = 8;
 const INVALID: &str = "Video download failed or changed; reload the conversation";
 const UNSUPPORTED: &str = "Video server does not support buffering; download to play externally";
@@ -270,7 +272,7 @@ mod tests {
 				let start = start.parse::<usize>().unwrap();
 				let end = end.parse::<usize>().unwrap();
 				let count = end - start + 1;
-				assert!(count <= 256 * 1024 && end < expected);
+				assert!(count <= CHUNK && end < expected);
 				observed.fetch_add(1, Ordering::Release);
 				std::thread::sleep(Duration::from_millis(10));
 				write!(socket, "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {start}-{end}/{expected}\r\nContent-Length: {count}\r\nConnection: close\r\n\r\n").unwrap();

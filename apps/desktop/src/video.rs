@@ -661,7 +661,7 @@ fn play_decoded(
 				}
 			}
 			// Two frames ahead (<=25 MiB as 4K NV12, 64 MiB as RGBA), plus one bounded
-			// audio packet and one second of PCM.
+			// audio packet and a few seconds of PCM.
 			if !video_ended && frames.len() < 2 {
 				let read_started = Instant::now();
 				let sample = decoder.poll_video()?;
