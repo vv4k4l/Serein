@@ -6,15 +6,15 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
 const READY: &str = "Global voice keybinds are enabled.";
-const DISABLED: &str = "Global keybinds are off. Shortcuts work while Serein is focused.";
+const DISABLED: &str = "Global keybinds are off. Shortcuts work while Hitora is focused.";
 #[cfg(target_os = "linux")]
 const WAYLAND_PENDING: &str = "Approve the global voice keybinds in your desktop's dialog.";
 #[cfg(target_os = "linux")]
-const WAYLAND_UNAVAILABLE: &str = "Global voice keybinds were denied or the desktop GlobalShortcuts portal is unavailable; they still work while Serein is focused.";
+const WAYLAND_UNAVAILABLE: &str = "Global voice keybinds were denied or the desktop GlobalShortcuts portal is unavailable; they still work while Hitora is focused.";
 const UNAVAILABLE: &str =
-	"Global voice keybinds are unavailable on this system; they work while Serein is focused.";
-const INVALID: &str = "One or more voice bindings cannot be registered globally; they still work while Serein is focused.";
-const MODIFIER_REQUIRED: &str = "Add Ctrl, Alt, Shift, or Command to use a voice binding globally; it still works while Serein is focused.";
+	"Global voice keybinds are unavailable on this system; they work while Hitora is focused.";
+const INVALID: &str = "One or more voice bindings cannot be registered globally; they still work while Hitora is focused.";
+const MODIFIER_REQUIRED: &str = "Add Ctrl, Alt, Shift, or Command to use a voice binding globally; it still works while Hitora is focused.";
 
 #[cfg(target_os = "windows")]
 /// Mouse poller identities, kept out of the range `global-hotkey` assigns to real hotkeys.
@@ -646,11 +646,11 @@ fn portal_id(action: KeybindAction) -> &'static str {
 #[cfg(target_os = "linux")]
 fn portal_description(action: KeybindAction) -> &'static str {
 	match action {
-		KeybindAction::PushToTalk => "Serein push to talk",
-		KeybindAction::PushToMute => "Serein push to mute",
-		KeybindAction::ToggleMute => "Toggle Serein microphone mute",
-		KeybindAction::ToggleDeafen => "Toggle Serein deafen",
-		_ => "Serein voice shortcut",
+		KeybindAction::PushToTalk => "Hitora push to talk",
+		KeybindAction::PushToMute => "Hitora push to mute",
+		KeybindAction::ToggleMute => "Toggle Hitora microphone mute",
+		KeybindAction::ToggleDeafen => "Toggle Hitora deafen",
+		_ => "Hitora voice shortcut",
 	}
 }
 

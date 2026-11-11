@@ -1116,7 +1116,7 @@ impl Desktop {
 	}
 }
 
-/// The Serein mark on a solid accent tile; one shape at every size, no halo.
+/// The Hitora mark on a solid accent tile; one shape at every size, no halo.
 fn app_mark(ui: &mut egui::Ui, size: f32) {
 	let p = ui::design::palette(ui);
 	let (mark, _) = ui.allocate_exact_size(egui::Vec2::splat(size), egui::Sense::hover());

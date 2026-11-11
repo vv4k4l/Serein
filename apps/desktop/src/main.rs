@@ -618,7 +618,7 @@ fn main() -> eframe::Result {
 		..Default::default()
 	};
 	let result = eframe::run_native(
-		"Serein",
+		"Hitora",
 		options,
 		Box::new(move |cc| {
 			let mut desktop =
@@ -645,7 +645,7 @@ fn main() -> eframe::Result {
 	// Quitting mid-share drops media workers that are still closing their encoders, and
 	// NVIDIA's exit handlers crash or deadlock if the process exits during that teardown.
 	if !discord_voice::wait_for_media_threads(std::time::Duration::from_secs(5)) {
-		eprintln!("Screen or camera capture was still closing when Serein exited.");
+		eprintln!("Screen or camera capture was still closing when Hitora exited.");
 	}
 	result
 }
@@ -981,7 +981,7 @@ impl Drop for FrameMetrics {
 			let _ = writeln!(
 				std::io::stderr(),
 				// Preserve the legacy diagnostic label; elapsed callback time is wall time.
-				"[Serein frames] callbacks={} without_input={} cpu_us_buckets(1000,2000,4000,8000,16000,32000,64000,above)={:?} reflows(total,consecutive)={:?}",
+				"[Hitora frames] callbacks={} without_input={} cpu_us_buckets(1000,2000,4000,8000,16000,32000,64000,above)={:?} reflows(total,consecutive)={:?}",
 				self.frames,
 				self.inputless,
 				self.buckets,
@@ -2626,7 +2626,7 @@ impl Desktop {
 	fn diagnostics_report(&self, ctx: &egui::Context) -> String {
 		use std::fmt::Write;
 		let mut report = String::with_capacity(24 * 1024);
-		report.push_str("# Serein diagnostics\n\n");
+		report.push_str("# Hitora diagnostics\n\n");
 		report.push_str(&self.messaging.diagnostic_info(ctx));
 		report.push('\n');
 		let log_file = diagnostics::path()
@@ -3048,7 +3048,7 @@ impl Desktop {
 			}
 		}
 	}
-	/// Whether closing may keep Serein running without a window. macOS apps stay in the Dock
+	/// Whether closing may keep Hitora running without a window. macOS apps stay in the Dock
 	/// until quit, and the Dock icon reopens the window.
 	fn background_available(&self) -> bool {
 		cfg!(target_os = "macos") || self.tray_available()
@@ -4705,14 +4705,14 @@ impl Desktop {
 						if self.messaging.custom_font.busy && self.font_picker.is_none() {
 							self.messaging.custom_font.busy = false;
 							self.messaging.custom_font.status =
-								"Local storage worker stopped. Restart Serein to save fonts.";
+								"Local storage worker stopped. Restart Hitora to save fonts.";
 						}
 						if self.messaging.channel_preferences_reload
 							|| self.messaging.channel_preferences_load_pending
 						{
 							self.messaging.channel_preferences_reload = false;
 							self.messaging.channel_preferences_load_pending = false;
-							self.messaging.channel_preferences_status = "Local storage worker stopped; restart Serein to restore channel preferences.";
+							self.messaging.channel_preferences_status = "Local storage worker stopped; restart Hitora to restore channel preferences.";
 						}
 						presence_cache_stopped = self.presence_load_pending;
 						break;
@@ -5055,7 +5055,7 @@ impl Desktop {
 					if result.is_err() {
 						self.messaging.toasts.push(
 							ui::design::Level::Error,
-							"Could not delete the plaintext saved logins in Serein's data folder",
+							"Could not delete the plaintext saved logins in Hitora's data folder",
 						);
 					} else if !enabled {
 						self.credential_status = "Plaintext saved logins deleted";
@@ -5068,7 +5068,7 @@ impl Desktop {
 						// Nothing could have been saved without a credential store.
 						Err(platform::CredentialError::NoStore) => "",
 						Err(_) => {
-							"Could not remove the Serein saved login in your OS credential manager"
+							"Could not remove the Hitora saved login in your OS credential manager"
 						}
 					};
 				}
@@ -5384,7 +5384,7 @@ impl Desktop {
 					// One extra fixed-label terminal line per enabled scope; closed stderr is OK.
 					let _ = writeln!(
 						std::io::stderr(),
-						"[Serein {scope}] Session stopped: {}",
+						"[Hitora {scope}] Session stopped: {}",
 						failure.label()
 					);
 				}
@@ -5567,7 +5567,7 @@ impl eframe::App for Desktop {
 	}
 	fn repaint_on_device_event(&mut self, event: &winit::event::DeviceEvent) -> Option<bool> {
 		// Raw motion duplicates the window's cursor events, which still repaint for hover;
-		// Serein never reads it (`PointerState::motion`).
+		// Hitora never reads it (`PointerState::motion`).
 		matches!(event, winit::event::DeviceEvent::MouseMotion { .. }).then_some(false)
 	}
 	fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {

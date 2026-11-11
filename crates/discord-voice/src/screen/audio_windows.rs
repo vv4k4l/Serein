@@ -104,11 +104,11 @@ impl Drop for Audio {
 	}
 }
 
-// Two capture strategies keep Serein's own playback out of the shared audio:
+// Two capture strategies keep Hitora's own playback out of the shared audio:
 //
-// * Windows build 20348+ activates one process loopback that excludes Serein's process tree.
+// * Windows build 20348+ activates one process loopback that excludes Hitora's process tree.
 // * Older builds (Windows 10) cannot exclude a tree, so a supervisor lists the applications
-//   that currently own audio sessions, skips Serein's tree and anything Serein descends from,
+//   that currently own audio sessions, skips Hitora's tree and anything Hitora descends from,
 //   and runs one include-mode loopback per remaining application, activating them in
 //   parallel and recycling a lane that goes quiet while its application plays. A mixer sums
 //   their lanes into the same 48 kHz stereo stream. The whole output is never captured.
@@ -346,7 +346,7 @@ mod native {
 	/// Opt-in diagnostics line saying which capture strategy a share ended up with.
 	fn note_mode(mode: &str) {
 		if std::env::var_os("SEREIN_VOICE_DIAGNOSTICS").is_some_and(|value| value == "1") {
-			eprintln!("[Serein voice Screen] audio_mode={mode}");
+			eprintln!("[Hitora voice Screen] audio_mode={mode}");
 		}
 	}
 
@@ -446,12 +446,12 @@ mod native {
 	}
 
 	/// Picks the processes to capture. Include mode takes a process and all its children, so:
-	/// Serein and its children are never captured; a process that Serein descends from is
-	/// skipped because its tree would carry Serein's playback; and a process inside another
+	/// Hitora and its children are never captured; a process that Hitora descends from is
+	/// skipped because its tree would carry Hitora's playback; and a process inside another
 	/// selected tree is left to that tree's capture, which avoids mixing it twice.
 	///
-	/// Stale parent links can form a loop. A loop above Serein excludes all of its members,
-	/// because none can be shown to be unrelated to Serein. Anywhere else, two processes that
+	/// Stale parent links can form a loop. A loop above Hitora excludes all of its members,
+	/// because none can be shown to be unrelated to Hitora. Anywhere else, two processes that
 	/// each appear inside the other are a loop and not a nesting, so both stay captured instead
 	/// of silently dropping each other.
 	fn select_roots(sessions: &[u32], ours: u32, parents: &HashMap<u32, u32>) -> Vec<u32> {
@@ -476,7 +476,7 @@ mod native {
 		roots
 	}
 
-	/// Records every process that descends from Serein, directly or through one already recorded.
+	/// Records every process that descends from Hitora, directly or through one already recorded.
 	/// A recorded process stays excluded after its parent exits and Windows leaves its parent link
 	/// stale, which would otherwise make it look unrelated. Entries are dropped once the process
 	/// itself is gone, so a reused id is not excluded for long.
@@ -633,8 +633,8 @@ mod native {
 		result
 	}
 
-	/// Whether a window's process can be captured alone: it is neither Serein, nor something
-	/// Serein runs under, nor inside Serein, so its tree cannot carry Serein's own playback. When
+	/// Whether a window's process can be captured alone: it is neither Hitora, nor something
+	/// Hitora runs under, nor inside Hitora, so its tree cannot carry Hitora's own playback. When
 	/// the process list cannot be read this is false and the share captures other applications.
 	/// Store apps' windows belong to ApplicationFrameHost, which plays nothing itself, so they
 	/// also capture other applications instead of sharing silence.
@@ -684,7 +684,7 @@ mod native {
 		Ok(())
 	}
 
-	/// One loopback of everything except Serein's process tree (Windows build 20348+).
+	/// One loopback of everything except Hitora's process tree (Windows build 20348+).
 	fn exclude_tree(input: &Samples, started: SyncSender<()>) -> Result<()> {
 		let mut started = Some(started);
 		while !input.stopped() {
@@ -698,7 +698,7 @@ mod native {
 		Ok(())
 	}
 
-	/// Captures everything except Serein on Windows 10 before build 20348, where Windows cannot
+	/// Captures everything except Hitora on Windows 10 before build 20348, where Windows cannot
 	/// exclude a process tree. Each application is captured on its own, as Discord does, and the
 	/// lanes are mixed. There is no exclude probe: on these builds it can stall for many seconds
 	/// and leave abandoned requests queued in the audio service.
@@ -773,7 +773,7 @@ mod native {
 					let peak = f32::from_bits(lane.peak.swap(0, Ordering::Relaxed));
 					let packets = lane.packets.swap(0, Ordering::Relaxed);
 					eprintln!(
-						"[Serein voice Screen] lane pid={} exe={} peak={peak:.4} packets={packets}",
+						"[Hitora voice Screen] lane pid={} exe={} peak={peak:.4} packets={packets}",
 						lane.pid, lane.name
 					);
 				}
@@ -867,7 +867,7 @@ mod native {
 		let mut unstartable: Option<Instant> = None;
 		// Applications already named in the opt-in report, so a restarting lane names itself once.
 		let mut announced: HashSet<u32> = HashSet::new();
-		// Processes that descend from Serein, kept across polls so orphans stay excluded.
+		// Processes that descend from Hitora, kept across polls so orphans stay excluded.
 		let mut descendants: HashSet<u32> = HashSet::new();
 		// Playing applications that found every lane taken by another playing one.
 		let mut over_capacity: HashSet<u32> = HashSet::new();
@@ -1024,7 +1024,7 @@ mod native {
 									.is_some_and(|value| value == "1")
 							{
 								eprintln!(
-									"[Serein voice Screen] lane_limit={MAX_LANES} not_captured pid={pid} exe={}",
+									"[Hitora voice Screen] lane_limit={MAX_LANES} not_captured pid={pid} exe={}",
 									image_name(pid)
 								);
 							}
@@ -1072,7 +1072,7 @@ mod native {
 							.is_some_and(|value| value == "1")
 					{
 						eprintln!(
-							"[Serein voice Screen] app_capture pid={pid} exe={} playing={active}",
+							"[Hitora voice Screen] app_capture pid={pid} exe={} playing={active}",
 							name
 						);
 					}
@@ -1132,16 +1132,16 @@ mod native {
 		unsafe { CoUninitialize() };
 	}
 
-	/// The applications to capture now, each with whether it is playing audio. Serein, what it
+	/// The applications to capture now, each with whether it is playing audio. Hitora, what it
 	/// started and what started it are left out, so its own playback is never captured. Not
 	/// learning the sessions or the process tree is an error: capturing without the tree
-	/// could pick up Serein's own audio.
+	/// could pick up Hitora's own audio.
 	fn applications(ours: u32, descendants: &mut HashSet<u32>) -> Result<HashMap<u32, bool>> {
 		let mut sessions = render_sessions()?;
 		let parents = process_parents()?;
 		let mut engines: HashMap<u32, bool> = HashMap::new();
 		sessions.retain(|&(pid, _)| !*engines.entry(pid).or_insert_with(|| is_audio_engine(pid)));
-		// What Serein started stays excluded after its parent exits and orphans it.
+		// What Hitora started stays excluded after its parent exits and orphans it.
 		track_descendants(ours, &parents, descendants);
 		sessions.retain(|&(pid, _)| !descendants.contains(&pid));
 		let pids: Vec<u32> = sessions.iter().map(|&(pid, _)| pid).collect();
@@ -1212,7 +1212,7 @@ mod native {
 	}
 
 	/// A snapshot of every process's parent id. A snapshot that cannot be taken or read in full
-	/// is an error, because a missing link could let Serein's own audio through.
+	/// is an error, because a missing link could let Hitora's own audio through.
 	fn process_parents() -> Result<HashMap<u32, u32>> {
 		let mut parents = HashMap::new();
 		let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)? };
@@ -1479,12 +1479,12 @@ mod native {
 			);
 		}
 
-		/// Serein, what it started and what started it are never selected for capture.
+		/// Hitora, what it started and what started it are never selected for capture.
 		#[test]
 		fn application_capture_never_includes_serein_or_its_ancestors() {
-			// 1 launcher -> 10 Serein -> 11 webview; 2 browser -> 3 browser helper; 4 game.
+			// 1 launcher -> 10 Hitora -> 11 webview; 2 browser -> 3 browser helper; 4 game.
 			let tree = parents(&[(10, 1), (11, 10), (3, 2), (2, 0), (4, 0), (1, 0)]);
-			// Serein, its child, and the launcher Serein descends from are all skipped.
+			// Hitora, its child, and the launcher Hitora descends from are all skipped.
 			assert_eq!(select_roots(&[10, 11, 1, 4, 0], 10, &tree), vec![4]);
 			// A helper inside an already selected browser tree is not captured twice.
 			assert_eq!(select_roots(&[3, 2, 4], 10, &tree), vec![2, 4]);
@@ -1493,21 +1493,21 @@ mod native {
 		}
 
 		/// Stale parent ids can loop after id reuse. Unrelated applications in a loop must stay
-		/// captured, and a loop above Serein must never let one of its members through.
+		/// captured, and a loop above Hitora must never let one of its members through.
 		#[test]
 		fn stale_parent_cycles_neither_hang_nor_hide_applications() {
 			let tree = parents(&[(5, 6), (6, 5)]);
 			assert_eq!(select_roots(&[5, 6], 10, &tree), vec![5, 6]);
-			// Serein 10 descends from 1, which sits in a loop with 2: both are ancestors.
+			// Hitora 10 descends from 1, which sits in a loop with 2: both are ancestors.
 			let tree = parents(&[(10, 1), (1, 2), (2, 1), (4, 0)]);
 			assert_eq!(select_roots(&[1, 2, 4], 10, &tree), vec![4]);
 		}
 
-		/// A descendant of Serein stays excluded after its parent exits and orphans it.
+		/// A descendant of Hitora stays excluded after its parent exits and orphans it.
 		#[test]
 		fn orphaned_descendants_stay_excluded() {
 			let mut known = HashSet::new();
-			// 10 is Serein; 11 its helper; 12 started by the helper; 4 is unrelated.
+			// 10 is Hitora; 11 its helper; 12 started by the helper; 4 is unrelated.
 			track_descendants(
 				10,
 				&parents(&[(10, 1), (11, 10), (12, 11), (4, 0)]),

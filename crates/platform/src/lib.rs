@@ -212,7 +212,7 @@ pub(crate) fn ensure_webkit_locale() -> Result<(), &'static str> {
 		|| std::env::var_os("FLATPAK_ID").is_some();
 	if flatpak && !gtk4::glib::charset().0 {
 		return Err(
-			"Serein Flatpak login/verification requires a UTF-8 locale. Repair runtime languages and restart Serein; see Flatpak troubleshooting.",
+			"Hitora Flatpak login/verification requires a UTF-8 locale. Repair runtime languages and restart Hitora; see Flatpak troubleshooting.",
 		);
 	}
 	Ok(())
@@ -396,7 +396,7 @@ fn credential_store() -> Result<(), CredentialError> {
 		.map_err(|_| CredentialError::NoStore)
 }
 /// Unlike keyring's one-shot default, a missing Secret Service is retried, so a provider that
-/// starts after Serein (or KWallet, which may need activating) is still found.
+/// starts after Hitora (or KWallet, which may need activating) is still found.
 #[cfg(target_os = "linux")]
 fn credential_store() -> Result<(), CredentialError> {
 	const RETRY: std::time::Duration = std::time::Duration::from_secs(15);

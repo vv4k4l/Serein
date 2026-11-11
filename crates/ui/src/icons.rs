@@ -1,4 +1,4 @@
-//! Phosphor Icons (MIT), Simple Icons brand marks (CC0) and the Serein mark rasterized once
+//! Phosphor Icons (MIT), Simple Icons brand marks (CC0) and the Hitora mark rasterized once
 //! into one bundled atlas and tinted at draw time.
 //!
 //! `assets/icons/atlas.png` holds white glyphs on transparency in fixed 64px cells;
