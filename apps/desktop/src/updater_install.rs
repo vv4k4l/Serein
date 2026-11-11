@@ -13,7 +13,7 @@ use std::{
 const MAX_FILES: usize = 8192;
 const MAX_UNPACKED: u64 = 1024 * 1024 * 1024;
 const WINDOWS_FILES: &[&str] = &[
-	"serein.exe",
+	"hitora.exe",
 	"README.md",
 	"LICENSE-MIT",
 	"LICENSE-APACHE",
@@ -198,7 +198,7 @@ fn installation() -> Result<PathBuf, String> {
 		let root = exe
 			.parent()
 			.ok_or("Cannot locate the installed application folder.")?;
-		if exe.file_name().is_none_or(|name| name != "serein.exe")
+		if exe.file_name().is_none_or(|name| name != "hitora.exe")
 			|| !root.join("THIRD_PARTY_NOTICES.md").is_file()
 			|| !root.join("licenses").is_dir()
 		{
@@ -711,7 +711,7 @@ pub(super) fn unpack(
 			return Err("The update does not contain Serein.app.".into());
 		}
 		verify_mac(&destination.join("Serein.app"), installed)?;
-	} else if !destination.join("serein.exe").is_file()
+	} else if !destination.join("hitora.exe").is_file()
 		|| !destination.join("licenses").is_dir()
 		|| !destination.join("THIRD_PARTY_NOTICES.md").is_file()
 	{
@@ -985,7 +985,7 @@ try {
   if ($plan.version -and (Test-Path -LiteralPath $uninstallKey)) {
     Set-ItemProperty -LiteralPath $uninstallKey -Name 'DisplayVersion' -Value ([string]$plan.version) -ErrorAction SilentlyContinue
   }
-  Start-Process -FilePath (Join-Path $installation 'serein.exe') -WorkingDirectory $installation
+  Start-Process -FilePath (Join-Path $installation 'hitora.exe') -WorkingDirectory $installation
 } catch {
   foreach ($name in $replaced) {
     $target = Join-Path $installation $name
@@ -994,7 +994,7 @@ try {
   foreach ($name in $moved) {
     Move-Item -LiteralPath (Join-Path $backup $name) -Destination (Join-Path $installation $name) -ErrorAction SilentlyContinue
   }
-  Start-Process -FilePath (Join-Path $installation 'serein.exe') -WorkingDirectory $installation -ErrorAction SilentlyContinue
+  Start-Process -FilePath (Join-Path $installation 'hitora.exe') -WorkingDirectory $installation -ErrorAction SilentlyContinue
   exit 1
 }
 try {

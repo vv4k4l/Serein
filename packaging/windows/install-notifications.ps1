@@ -7,8 +7,8 @@ if ($Remove) {
     if (Test-Path -LiteralPath $shortcut) { Remove-Item -LiteralPath $shortcut }
     return
 }
-$executable = Join-Path $PSScriptRoot 'serein.exe'
-if (!(Test-Path -LiteralPath $executable)) { throw 'Keep this script next to serein.exe in its final folder.' }
+$executable = Join-Path $PSScriptRoot 'hitora.exe'
+if (!(Test-Path -LiteralPath $executable)) { throw 'Keep this script next to hitora.exe in its final folder.' }
 if ((Test-Path -LiteralPath $shortcut) -and !$Force) { throw 'Serein.lnk already exists. Remove it explicitly with -Remove before replacing it.' }
 if ($Force -and (Test-Path -LiteralPath $shortcut)) { Remove-Item -LiteralPath $shortcut -Force }
 

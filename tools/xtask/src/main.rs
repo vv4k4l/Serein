@@ -273,6 +273,9 @@ fn package() -> Result<(), String> {
 		std::fs::copy("packaging/macos/Info.plist", app.join("Info.plist"))
 			.map_err(|e| e.to_string())?;
 		app.join("MacOS").join(exe)
+	} else if cfg!(windows) {
+		// The fork ships the Windows executable under its own name; Cargo still builds `serein.exe`.
+		root.join("hitora.exe")
 	} else {
 		root.join(exe)
 	};

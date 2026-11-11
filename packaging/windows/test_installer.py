@@ -92,7 +92,7 @@ def main():
         output.mkdir()
         fixture = root / "fixture.rs"
         fixture.write_text('fn main() { if let Some(p) = std::env::args().nth(1) { std::fs::write(p, b"ready").unwrap(); std::thread::sleep(std::time::Duration::from_secs(120)); } }')
-        subprocess.run(["rustc", "--edition=2024", "-O", str(fixture), "-o", str(payload / "serein.exe")], check=True)
+        subprocess.run(["rustc", "--edition=2024", "-O", str(fixture), "-o", str(payload / "hitora.exe")], check=True)
         (payload / "LICENSE-MIT").write_text("Synthetic installer fixture")
         for name in ("install-notifications.ps1", "setup.ps1"):
             (payload / name).write_text("throw 'Installer must not run or install this optional script'")
@@ -124,7 +124,7 @@ def main():
         try:
             # Case-insensitive process recognition, with no GUI, Discord or audio.
             running_exe = root / "SEREIN.EXE"
-            shutil.copy2(payload / "serein.exe", running_exe)
+            shutil.copy2(payload / "hitora.exe", running_exe)
             ready = root / "ready"
             running = subprocess.Popen([str(running_exe), str(ready)])
             wait_for(ready.exists)
@@ -139,11 +139,11 @@ def main():
                 start = time.perf_counter()
                 subprocess.run(f'"{setup}" /S /D={installed}', check=True, timeout=30)
                 timings.append(round((time.perf_counter() - start) * 1000, 3))
-                assert (installed / "serein.exe").read_bytes() == (payload / "serein.exe").read_bytes()
+                assert (installed / "hitora.exe").read_bytes() == (payload / "hitora.exe").read_bytes()
                 assert uninstaller.is_file()
                 assert not (installed / "install-notifications.ps1").exists()
                 assert not (installed / "setup.ps1").exists()
-                check_shortcut(shortcut, installed / "serein.exe")
+                check_shortcut(shortcut, installed / "hitora.exe")
                 with winreg.OpenKey(winreg.HKEY_CURRENT_USER, uninstall_key, 0,
                                     winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
                     assert winreg.QueryValueEx(key, "DisplayVersion")[0] == "0.0.0-offline"
@@ -152,11 +152,11 @@ def main():
                 for name in ("install-notifications.ps1", "setup.ps1"):
                     (installed / name).write_text("legacy fixture")
             ready.unlink()
-            running = subprocess.Popen([str(installed / "serein.exe"), str(ready)])
+            running = subprocess.Popen([str(installed / "hitora.exe"), str(ready)])
             wait_for(ready.exists)
             result = uninstall()
             assert result.returncode == 1, result.returncode
-            assert (installed / "serein.exe").exists() and shortcut.exists()
+            assert (installed / "hitora.exe").exists() and shortcut.exists()
             running.terminate()
             running.wait(timeout=10)
             running = None
