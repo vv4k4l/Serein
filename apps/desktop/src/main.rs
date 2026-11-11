@@ -1520,6 +1520,30 @@ fn demo_members(
 	}
 }
 
+/// Enter or leave borderless fullscreen. On Windows a maximized custom-chrome window keeps its
+/// client area clamped to the work area, which leaves a taskbar-high strip uncovered, so the
+/// window is restored first and maximized again on the way out.
+fn set_window_fullscreen(window: &winit::window::Window, ctx: &egui::Context, fullscreen: bool) {
+	let was_maximized = egui::Id::new("hitora-fullscreen-was-maximized");
+	if fullscreen {
+		if cfg!(target_os = "windows") && window.fullscreen().is_none() && window.is_maximized() {
+			ctx.data_mut(|data| data.insert_temp(was_maximized, true));
+			window.set_maximized(false);
+		}
+		window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
+			window.current_monitor(),
+		)));
+	} else {
+		window.set_fullscreen(None);
+		if ctx
+			.data_mut(|data| data.remove_temp::<bool>(was_maximized))
+			.unwrap_or(false)
+		{
+			window.set_maximized(true);
+		}
+	}
+}
+
 #[cfg(target_os = "windows")]
 fn align_undecorated_surface(window: &winit::window::Window) {
 	use winit::platform::windows::WindowExtWindows as _;
@@ -6861,18 +6885,11 @@ impl eframe::App for Desktop {
 		let video = self.messaging.video().take_fullscreen_request();
 		let voice = self.messaging.take_voice_fullscreen_request();
 		for fullscreen in [video, voice].into_iter().flatten() {
-			self.window.set_fullscreen(
-				fullscreen
-					.then(|| winit::window::Fullscreen::Borderless(self.window.current_monitor())),
-			);
+			set_window_fullscreen(&self.window, &ctx, fullscreen);
 		}
 		// F11 toggles the whole window; a video or call share leaving fullscreen still restores it.
 		if ctx.input(|input| input.key_pressed(egui::Key::F11) && input.modifiers.is_none()) {
-			let entering = self.window.fullscreen().is_none();
-			self.window.set_fullscreen(
-				entering
-					.then(|| winit::window::Fullscreen::Borderless(self.window.current_monitor())),
-			);
+			set_window_fullscreen(&self.window, &ctx, self.window.fullscreen().is_none());
 		}
 		#[cfg(feature = "demo")]
 		if let Some(diagnostic) = &self.rendering_demo {
