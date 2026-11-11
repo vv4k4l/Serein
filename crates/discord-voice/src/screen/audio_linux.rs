@@ -120,6 +120,7 @@ impl OwnApplication {
 			&& ![Some(binary), name, app_id].into_iter().flatten().any(|v| {
 				v.len() > 256
 					|| v.to_ascii_lowercase().contains("serein")
+					|| v.to_ascii_lowercase().contains("hitora")
 					|| v.eq_ignore_ascii_case("rustcord")
 			})
 	}
