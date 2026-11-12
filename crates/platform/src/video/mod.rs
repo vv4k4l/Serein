@@ -43,6 +43,13 @@ pub const MAX_ACCESS_UNIT: usize = 2 * 1024 * 1024 + 64 * 1024;
 pub const MAX_LIVE_DIMENSION: u32 = 3840;
 pub const MAX_LIVE_PIXELS: u64 = 3840 * 2160;
 
+/// Inline attachment playback is drawn into a chat column, and every frame crosses the
+/// decoder as packed RGB32: one 4K frame is 33 MB, so a high frame rate saturates conversion
+/// and texture upload long before the decoder itself. Fit playback to 1080p, which the
+/// decoder's own video processor does on the GPU, and carry a quarter of the bytes.
+pub const MAX_PLAYBACK_DIMENSION: u32 = 1920;
+pub const MAX_PLAYBACK_PIXELS: u64 = 1920 * 1080;
+
 pub fn check_live_dimensions(width: u32, height: u32) -> Result<(), &'static str> {
 	if width == 0 || height == 0 {
 		return Err(INVALID);
@@ -140,8 +147,8 @@ pub fn playback_dimensions(width: u32, height: u32) -> Result<(u32, u32), &'stat
 		return Err(INVALID);
 	}
 	let (w, h) = (f64::from(width), f64::from(height));
-	let scale = (f64::from(MAX_LIVE_DIMENSION) / w.max(h))
-		.min((MAX_LIVE_PIXELS as f64 / (w * h)).sqrt())
+	let scale = (f64::from(MAX_PLAYBACK_DIMENSION) / w.max(h))
+		.min((MAX_PLAYBACK_PIXELS as f64 / (w * h)).sqrt())
 		.min(1.0);
 	let fitted = (
 		(w * scale).floor().max(1.0) as u32,
@@ -190,11 +197,12 @@ mod tests {
 	#[test]
 	fn source_resolution_is_fitted_without_expanding_the_frame_budget() {
 		assert_eq!(playback_dimensions(1920, 1080), Ok((1920, 1080)));
-		assert_eq!(playback_dimensions(7680, 4320), Ok((3840, 2160)));
-		assert_eq!(playback_dimensions(4320, 7680), Ok((2160, 3840)));
-		assert_eq!(playback_dimensions(4096, 4096), Ok((2880, 2880)));
+		assert_eq!(playback_dimensions(3840, 2160), Ok((1920, 1080)));
+		assert_eq!(playback_dimensions(7680, 4320), Ok((1920, 1080)));
+		assert_eq!(playback_dimensions(4320, 7680), Ok((1080, 1920)));
+		assert_eq!(playback_dimensions(4096, 4096), Ok((1440, 1440)));
 		// Extremely wide metadata must neither overflow nor round the short side to zero.
-		assert_eq!(playback_dimensions(u32::MAX, 1), Ok((3840, 1)));
+		assert_eq!(playback_dimensions(u32::MAX, 1), Ok((1920, 1)));
 		assert_eq!(playback_dimensions(0, 1080), Err(INVALID));
 	}
 

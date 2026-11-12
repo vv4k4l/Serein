@@ -464,13 +464,15 @@ exclusion and receiving sound in an official client remain unverified.
 
 Inline playback accepts source resolutions supported by the installed native codec and device,
 including sources larger than 4K. Larger sources are fitted, without upscaling, into the existing
-playback surface: at most 3840 pixels per side and 3840×2160 pixels in total. Portrait and
+playback surface: at most 1920 pixels per side and 1920×1080 pixels in total. Frames reach the
+application as packed RGB32, so a 4K frame costs 33 MB to convert and upload; fitting to 1080p in
+the decoder's own video processor is what keeps high-frame-rate sources playing at speed. Portrait and
 ultrawide aspect ratios are preserved to integer-pixel rounding. This is a playback surface
 budget, not a source-resolution rejection. Windows requests resized Media Foundation output,
 macOS scales into a bounded VideoToolbox pixel buffer, and Linux scales after applying rotation and
 before queuing decoded video. The original attachment is unchanged.
 
-Codec profiles, hardware capabilities, the 100 MiB encoded attachment limit and the two-hour
+Codec profiles, hardware capabilities, the 1 GiB encoded attachment limit and the two-hour
 duration limit still apply. Supporting a source does not promise native-resolution rendering
 or a particular frame rate. Live screen sharing has its separate existing limits.
 
