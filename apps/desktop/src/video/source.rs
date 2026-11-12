@@ -1,4 +1,5 @@
-//! Decoder-driven attachment ranges. No file cache or eager whole-video download.
+//! Decoder-driven attachment ranges, one range of readahead. No file cache or eager
+//! whole-video download.
 use std::{
 	collections::VecDeque,
 	io::{self, Read, Seek, SeekFrom},
@@ -23,6 +24,17 @@ pub(super) fn source(
 	expected: usize,
 	cancelled: Arc<AtomicBool>,
 	runtime: Handle,
+) -> Result<Box<dyn platform::video::ReadSeek>, &'static str> {
+	open(url, expected, cancelled, runtime, true)
+}
+
+/// Readahead is speculative, so tests that assert an exact request sequence switch it off.
+fn open(
+	url: Option<url::Url>,
+	expected: usize,
+	cancelled: Arc<AtomicBool>,
+	runtime: Handle,
+	readahead: bool,
 ) -> Result<Box<dyn platform::video::ReadSeek>, &'static str> {
 	if expected == 0 || expected > MAX_BYTES {
 		return Err("Video preview limit: 1 GiB");
@@ -68,6 +80,8 @@ pub(super) fn source(
 		len,
 		position: 0,
 		cache: VecDeque::new(),
+		readahead,
+		prefetch: None,
 	}))
 }
 
@@ -86,6 +100,15 @@ struct Source {
 	len: usize,
 	position: usize,
 	cache: VecDeque<(usize, Vec<u8>)>,
+	readahead: bool,
+	prefetch: Option<(usize, tokio::task::JoinHandle<io::Result<Vec<u8>>>)>,
+}
+impl Drop for Source {
+	fn drop(&mut self) {
+		if let Some((_, handle)) = self.prefetch.take() {
+			handle.abort();
+		}
+	}
 }
 fn invalid() -> io::Error {
 	io::Error::new(io::ErrorKind::InvalidData, INVALID)
@@ -103,90 +126,143 @@ impl Source {
 		}
 	}
 	fn fill(&mut self) -> io::Result<()> {
-		// Retain both tracks across demuxer seeks. Evict before transfer so encoded
-		// payloads, including the new range, stay within eight chunks / 2 MiB.
+		// Retain both tracks across demuxer seeks. Evict before transfer so encoded payloads,
+		// including the new range and one readahead, stay within nine chunks / 18 MiB.
 		if self.cache.len() == CACHE_CHUNKS {
 			self.cache.pop_front();
+		}
+		let start = self.position / CHUNK * CHUNK;
+		let count = CHUNK.min(self.len - start);
+		let (client, url, runtime) = match &self.input {
+			Input::Http {
+				client,
+				url,
+				runtime,
+			} => (client.clone(), url.clone(), runtime.clone()),
+			#[cfg(feature = "demo")]
+			Input::Demo(_) => return Err(invalid()),
+		};
+		// Readahead for another range is useless now: drop it rather than wait on it.
+		let ready = match self.prefetch.take() {
+			Some((at, handle)) if at == start => Some(handle),
+			Some((_, handle)) => {
+				handle.abort();
+				None
+			}
+			None => None,
+		};
+		let cancelled = self.cancelled.clone();
+		let len = self.len;
+		let bytes = runtime.block_on(async move {
+			let transfer = async move {
+				match ready {
+					Some(handle) => handle.await.map_err(|_| invalid())?,
+					None => fetch_range(client, url, start, count, len).await,
+				}
+			};
+			tokio::select! { biased;
+				_ = aborted(&cancelled) => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "Cancelled")),
+				result = transfer => result,
+			}
+		})?;
+		self.check_cancelled()?;
+		self.cache.push_back((start, bytes));
+		self.read_ahead(start + CHUNK);
+		Ok(())
+	}
+	/// Fetch the following range in the background. The decoder reads sequentially within a
+	/// track, so by the time it asks for that range the transfer has usually finished; without
+	/// this every range costs the decode thread a full round trip and playback stutters.
+	fn read_ahead(&mut self, start: usize) {
+		if !self.readahead || self.prefetch.is_some() || start >= self.len {
+			return;
+		}
+		if self
+			.cache
+			.iter()
+			.any(|(at, bytes)| start >= *at && start < at + bytes.len())
+		{
+			return;
 		}
 		let (client, url, runtime) = match &self.input {
 			Input::Http {
 				client,
 				url,
 				runtime,
-			} => (client, url, runtime),
+			} => (client.clone(), url.clone(), runtime.clone()),
 			#[cfg(feature = "demo")]
-			Input::Demo(_) => return Err(invalid()),
+			Input::Demo(_) => return,
 		};
-		let start = self.position / CHUNK * CHUNK;
 		let count = CHUNK.min(self.len - start);
-		let end = start + count - 1;
-		let bytes = runtime.block_on(async {
-			let cancelled = async {
-				while !self.cancelled.load(Ordering::Acquire) {
-					tokio::time::sleep(Duration::from_millis(20)).await;
-				}
-			};
-			let transfer = async {
-				let response = client_core::fingerprint::discord_request(
-					client.get(url.as_str()),
-					url.as_str(),
-				)
-				.header(wreq::header::ACCEPT_ENCODING, "identity")
-				.header(wreq::header::RANGE, format!("bytes={start}-{end}"))
-				.send()
-				.await
-				.map_err(|_| invalid())?;
-				if response.status() == wreq::StatusCode::PARTIAL_CONTENT {
-					let range = format!("bytes {start}-{end}/{}", self.len);
-					if response
-						.headers()
-						.get(wreq::header::CONTENT_RANGE)
-						.and_then(|value| value.to_str().ok())
-						!= Some(range.as_str())
-					{
-						return Err(invalid());
-					}
-				} else if !(response.status() == wreq::StatusCode::OK
-					&& start == 0 && count == self.len)
-				{
-					return Err(io::Error::new(io::ErrorKind::Unsupported, UNSUPPORTED));
-				}
-				if response
-					.headers()
-					.get(wreq::header::CONTENT_ENCODING)
-					.is_some_and(|value| value != "identity")
-					|| response
-						.content_length()
-						.is_some_and(|len| len != count as u64)
-				{
-					return Err(invalid());
-				}
-				let mut bytes = Vec::with_capacity(count);
-				let mut response_body = std::pin::pin!(response.bytes_stream());
-				while let Some(chunk) = futures_util::StreamExt::next(&mut response_body)
-					.await
-					.transpose()
-					.map_err(|_| invalid())?
-				{
-					if chunk.len() > count - bytes.len() {
-						return Err(invalid());
-					}
-					bytes.extend_from_slice(&chunk);
-				}
-				if bytes.len() != count {
-					return Err(invalid());
-				}
-				Ok(bytes)
-			};
-			tokio::select! { biased;
-				_ = cancelled => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "Cancelled")),
-				result = transfer => result,
-			}
-		})?;
-		self.check_cancelled()?;
-		self.cache.push_back((start, bytes));
-		Ok(())
+		let len = self.len;
+		self.prefetch = Some((
+			start,
+			runtime.spawn(fetch_range(client, url, start, count, len)),
+		));
 	}
+}
+/// Resolves once the session is cancelled, so a transfer can be dropped promptly.
+async fn aborted(cancelled: &AtomicBool) {
+	while !cancelled.load(Ordering::Acquire) {
+		tokio::time::sleep(Duration::from_millis(20)).await;
+	}
+}
+/// One validated range request. Borrows nothing, so the same future serves a blocking fill
+/// and a spawned readahead.
+async fn fetch_range(
+	client: wreq::Client,
+	url: url::Url,
+	start: usize,
+	count: usize,
+	len: usize,
+) -> io::Result<Vec<u8>> {
+	let end = start + count - 1;
+	let response =
+		client_core::fingerprint::discord_request(client.get(url.as_str()), url.as_str())
+			.header(wreq::header::ACCEPT_ENCODING, "identity")
+			.header(wreq::header::RANGE, format!("bytes={start}-{end}"))
+			.send()
+			.await
+			.map_err(|_| invalid())?;
+	if response.status() == wreq::StatusCode::PARTIAL_CONTENT {
+		let range = format!("bytes {start}-{end}/{len}");
+		if response
+			.headers()
+			.get(wreq::header::CONTENT_RANGE)
+			.and_then(|value| value.to_str().ok())
+			!= Some(range.as_str())
+		{
+			return Err(invalid());
+		}
+	} else if !(response.status() == wreq::StatusCode::OK && start == 0 && count == len) {
+		return Err(io::Error::new(io::ErrorKind::Unsupported, UNSUPPORTED));
+	}
+	if response
+		.headers()
+		.get(wreq::header::CONTENT_ENCODING)
+		.is_some_and(|value| value != "identity")
+		|| response
+			.content_length()
+			.is_some_and(|length| length != count as u64)
+	{
+		return Err(invalid());
+	}
+	let mut bytes = Vec::with_capacity(count);
+	let mut response_body = std::pin::pin!(response.bytes_stream());
+	while let Some(chunk) = futures_util::StreamExt::next(&mut response_body)
+		.await
+		.transpose()
+		.map_err(|_| invalid())?
+	{
+		if chunk.len() > count - bytes.len() {
+			return Err(invalid());
+		}
+		bytes.extend_from_slice(&chunk);
+	}
+	if bytes.len() != count {
+		return Err(invalid());
+	}
+	Ok(bytes)
 }
 impl Read for Source {
 	fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
@@ -286,11 +362,12 @@ mod tests {
 			.enable_all()
 			.build()
 			.unwrap();
-		let mut input = source(
+		let mut input = open(
 			Some(url),
 			expected,
 			Arc::new(AtomicBool::new(false)),
 			runtime.handle().clone(),
+			false,
 		)
 		.unwrap();
 		assert_eq!(requests.load(Ordering::Acquire), 0);
@@ -355,7 +432,8 @@ mod tests {
 			.enable_all()
 			.build()
 			.unwrap();
-		let mut input = source(Some(url), CHUNK, cancelled, runtime.handle().clone()).unwrap();
+		let mut input =
+			open(Some(url), CHUNK, cancelled, runtime.handle().clone(), false).unwrap();
 		assert_eq!(
 			input.read(&mut [0]).unwrap_err().kind(),
 			io::ErrorKind::ConnectionAborted
@@ -413,11 +491,12 @@ mod tests {
 			.build()
 			.unwrap();
 		let cancelled = Arc::new(AtomicBool::new(false));
-		let mut input = source(
+		let mut input = open(
 			Some(url.clone()),
 			expected,
 			cancelled.clone(),
 			runtime.handle().clone(),
+			false,
 		)
 		.unwrap();
 		assert_eq!(requests.load(Ordering::Acquire), 0);
@@ -470,5 +549,71 @@ mod tests {
 			)
 			.is_err()
 		);
+	}
+
+	#[test]
+	fn readahead_loads_the_next_range_before_it_is_read() {
+		let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+		let url = url::Url::parse(&format!(
+			"http://{}/ahead.mov",
+			listener.local_addr().unwrap()
+		))
+		.unwrap();
+		let expected = CHUNK * 2;
+		let requests = Arc::new(AtomicUsize::new(0));
+		let observed = requests.clone();
+		let server = std::thread::spawn(move || {
+			for _ in 0..2 {
+				let (mut socket, _) = listener.accept().unwrap();
+				socket
+					.set_read_timeout(Some(Duration::from_secs(5)))
+					.unwrap();
+				let mut header = Vec::new();
+				while !header.ends_with(b"\r\n\r\n") {
+					assert!(header.len() < 8192);
+					let mut byte = [0];
+					socket.read_exact(&mut byte).unwrap();
+					header.push(byte[0]);
+				}
+				let header = String::from_utf8(header).unwrap().to_ascii_lowercase();
+				let range = header
+					.lines()
+					.find_map(|line| line.strip_prefix("range: bytes="))
+					.unwrap();
+				let start = range.split_once('-').unwrap().0.parse::<usize>().unwrap();
+				write!(socket, "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {start}-{}/{expected}\r\nContent-Length: {CHUNK}\r\nConnection: close\r\n\r\n", start + CHUNK - 1).unwrap();
+				socket
+					.write_all(&vec![(start / CHUNK) as u8; CHUNK])
+					.unwrap();
+				observed.fetch_add(1, Ordering::Release);
+			}
+		});
+		let runtime = tokio::runtime::Builder::new_multi_thread()
+			.worker_threads(2)
+			.enable_all()
+			.build()
+			.unwrap();
+		let mut input = open(
+			Some(url),
+			expected,
+			Arc::new(AtomicBool::new(false)),
+			runtime.handle().clone(),
+			true,
+		)
+		.unwrap();
+		let mut bytes = [1; 32];
+		input.read_exact(&mut bytes).unwrap();
+		assert_eq!(bytes, [0; 32]);
+		// The second range is requested without a second read, then satisfies that read.
+		let deadline = std::time::Instant::now() + Duration::from_secs(20);
+		while requests.load(Ordering::Acquire) < 2 && std::time::Instant::now() < deadline {
+			std::thread::sleep(Duration::from_millis(10));
+		}
+		assert_eq!(requests.load(Ordering::Acquire), 2);
+		server.join().unwrap();
+		input.seek(SeekFrom::Start(CHUNK as u64)).unwrap();
+		input.read_exact(&mut bytes).unwrap();
+		assert_eq!(bytes, [1; 32]);
+		assert_eq!(requests.load(Ordering::Acquire), 2);
 	}
 }
